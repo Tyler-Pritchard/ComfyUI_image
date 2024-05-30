@@ -1,0 +1,14 @@
+--- comfy/model_management.py	(revision )
++++ comfy/model_management.py	(revision )
+@@ -106,9 +106,9 @@
+     else:
+         return torch.device("cpu")
+ 
+-    mem_reserved = stats["reserved_bytes.all.current"]
+-    mem_active = stats["active_bytes.all.current"]
+-    mem_total_torch = mem_reserved
++        mem_reserved = stats.get("reserved_bytes.all.current", 0)
++        mem_active = stats.get("active_bytes.all.current", 0)
++        mem_total_torch = mem_reserved
+ 
+     return mem_total_torch
