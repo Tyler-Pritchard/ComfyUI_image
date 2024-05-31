@@ -1,49 +1,50 @@
-# Use an official Python runtime as a parent image
-FROM python:3.12
+# Use the official Python base image
+FROM python:3.12-slim
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /usr/src/app
 
-# Install necessary packages
+# Install necessary packages and dependencies
 RUN apt-get update && \
-    apt-get install -y git wget patch && \
-    pip install --upgrade pip
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
+    patch \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PyTorch with CPU support
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Copy the application files to the container
+COPY . .
 
-# Install HuggingFace's Diffusers library
-RUN pip install --no-cache-dir diffusers transformers
+# Ensure comfy directory exists
+RUN mkdir -p comfy
 
-# Install Jupyter Notebook
-RUN pip install --no-cache-dir jupyter
+# Copy model_management.py to the comfy directory
+COPY comfy/model_management.py comfy/model_management.py
 
-# Clone ComfyUI repository
-RUN git clone https://github.com/comfyanonymous/ComfyUI.git
+# Copy the patch file to the container
+COPY patches/patch_model_management.patch /usr/src/app/patch_model_management.patch
 
-# Copy the patch file into the Docker image
-COPY patch_model_management.patch /usr/src/app/ComfyUI/
+# List the contents of the /usr/src/app directory for debugging
+RUN ls -l /usr/src/app
 
-# Install ComfyUI requirements
-WORKDIR /usr/src/app/ComfyUI
+# List the contents of the /usr/src/app/comfy directory for debugging
+RUN ls -l /usr/src/app/comfy
+
+# Apply the patch file
+RUN patch -p1 < /usr/src/app/patch_model_management.patch
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Apply the patch to ComfyUI
-RUN patch -p0 < patch_model_management.patch
-
-# Download Stable Diffusion v1.4 model files separately
-RUN mkdir -p /usr/src/app/models/stable-diffusion-v1-4
-WORKDIR /usr/src/app/models/stable-diffusion-v1-4
-
-RUN wget https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/sd-v1-4.ckpt || echo "sd-v1-4.ckpt not found"
-RUN wget https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/config.json || echo "config.json not found"
-RUN wget https://huggingface.co/CompVis/stable-diffusion-v-1-4-original/resolve/main/model_index.json || echo "model_index.json not found"
-
-# Expose port for Jupyter
-EXPOSE 8888
-
-# Expose port for ComfyUI
+# Expose the necessary ports
 EXPOSE 5000
 
-# Start Jupyter Notebook and ComfyUI
-CMD ["sh", "-c", "jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root & cd /usr/src/app/ComfyUI && python main.py"]
+# Run the application
+CMD ["python", "app.py"]
